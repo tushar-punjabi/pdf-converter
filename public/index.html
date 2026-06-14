@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Serverless PDF Converter</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-6">
+
+    <div class="w-full max-w-xl bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold tracking-tight text-white">Universal PDF Converter</h1>
+            <p class="text-slate-400 mt-2 text-sm">Upload Word, Excel, Powerpoint, Images, or TXT to instantly convert to PDF.</p>
+        </header>
+
+        <div class="mb-6">
+            <label for="file-upload" class="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer bg-slate-850 hover:bg-slate-750 transition duration-200">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg class="w-10 h-10 mb-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="mb-2 text-sm text-slate-300"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p class="text-xs text-slate-500">Supports DOCX, XLSX, PPTX, PNG, JPG, TXT, etc.</p>
+                </div>
+                <input id="file-upload" type="file" class="hidden" accept="*" />
+            </label>
+        </div>
+
+        <div id="file-info" class="hidden mb-6 p-4 bg-slate-750 rounded-xl flex items-center justify-between border border-slate-700">
+            <div class="flex items-center space-x-3 truncate">
+                <span class="text-2xl">📄</span>
+                <div class="truncate">
+                    <p id="file-name" class="text-sm font-semibold text-slate-200 truncate">filename.docx</p>
+                    <p id="file-size" class="text-xs text-slate-400">0 KB</p>
+                </div>
+            </div>
+            <button id="clear-btn" class="text-xs font-medium text-red-400 hover:text-red-300 transition">Remove</button>
+        </div>
+
+        <button id="convert-btn" disabled class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition disabled:opacity-40 disabled:cursor-not-allowed">
+            Convert to PDF
+        </button>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('file-upload');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameElement = document.getElementById('file-name');
+        const fileSizeElement = document.getElementById('file-size');
+        const clearBtn = document.getElementById('clear-btn');
+        const convertBtn = document.getElementById('convert-btn');
+
+        let currentFile = null;
+
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            currentFile = file;
+            fileNameElement.textContent = file.name;
+            fileSizeElement.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+            fileInfo.classList.remove('hidden');
+            convertBtn.disabled = false;
+        });
+
+        clearBtn.addEventListener('click', () => {
+            currentFile = null;
+            fileUpload.value = '';
+            fileInfo.classList.add('hidden');
+            convertBtn.disabled = true;
+        });
+
+        convertBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+
+            convertBtn.textContent = 'Processing Conversion...';
+            convertBtn.disabled = true;
+
+            try {
+                const base64Data = await readFileAsBase64(currentFile);
+                const rawBase64 = base64Data.split(',')[1]; 
+                const fileExt = currentFile.name.split('.').pop().toLowerCase();
+
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: currentFile.name,
+                        fileData: rawBase64,
+                        fileExt: fileExt
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) throw new Error(result.error || 'Conversion processing failed.');
+
+                // Force browser to download the returned file
+                const link = document.createElement('a');
+                link.href = `data:application/pdf;base64,${result.pdf}`;
+                link.download = result.name;
+                link.click();
+
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                convertBtn.textContent = 'Convert to PDF';
+                convertBtn.disabled = false;
+            }
+        });
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = err => reject(err);
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>

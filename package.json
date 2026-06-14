@@ -1,0 +1,8 @@
+{
+  "name": "atlas-pdf-converter",
+  "version": "1.0.0",
+  "description": "Serverless PDF Converter tool for atlasolutions.cl",
+  "scripts": {
+    "start": "echo 'Deploy directly to Vercel'"
+  }
+}
